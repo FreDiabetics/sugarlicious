@@ -34,6 +34,7 @@ import app.sugarlicious.mobile.ui.theme.SugarliciousColorRole
 import app.sugarlicious.mobile.ui.theme.SugarliciousColorStore
 import app.sugarlicious.mobile.ui.theme.SugarliciousPalette
 import app.sugarlicious.model.CanonicalCgmHistory
+import app.sugarlicious.model.CgmGraphHistoryPresentation
 import app.sugarlicious.model.CgmGraphPolicy
 import app.sugarlicious.model.CgmRangeClass
 import app.sugarlicious.model.CgmThresholds
@@ -1038,8 +1039,13 @@ internal object NotificationGraphRenderer {
                 nowEpochMs = now,
                 preferredSource = state?.source,
                 windowMs = windowMs,
+                maxPoints = DisplayHistoryAccumulator.MAX_POINTS,
             )
-        val points = validSamples.associate { it.measuredAtEpochMs to it.valueMgDl }.entries.sortedBy { it.key }
+        // Preserve distinct sensor/session samples even when their timestamps overlap.
+        val points = validSamples.sortedBy(GlucoseSample::measuredAtEpochMs)
+        val activeSensor =
+            CgmGraphHistoryPresentation.identity(state?.glucose)
+                ?: CgmGraphHistoryPresentation.latestIdentity(validSamples)
         if (points.isEmpty()) return bitmap
 
         val thresholds = CgmThresholdPreferences.read(preferences)
@@ -1151,10 +1157,27 @@ internal object NotificationGraphRenderer {
         val dotRadius = dotStyle.cgmRadiusDp * renderDensity
         val currentExtra = 0.18f * renderDensity
 
-        points.forEachIndexed { index, point ->
-            val px = x(point.key)
-            val py = y(point.value)
-            val current = index == points.lastIndex
+        val currentSample = points.lastOrNull { !CgmGraphHistoryPresentation.isRetired(it, activeSensor) }
+        points.sortedByDescending { CgmGraphHistoryPresentation.isRetired(it, activeSensor) }.forEachIndexed { _, point ->
+            val px = x(point.measuredAtEpochMs)
+            val py = y(point.valueMgDl)
+            val retired = CgmGraphHistoryPresentation.isRetired(point, activeSensor)
+            if (retired) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = CgmGraphHistoryPresentation.RETIRED_OUTLINE_WIDTH_DP * renderDensity
+                paint.color =
+                    when {
+                        point.valueMgDl < targetLow -> graphColor(SugarliciousColorRole.CGM_DOT_LOW)
+                        point.valueMgDl > targetHigh -> graphColor(SugarliciousColorRole.CGM_DOT_HIGH)
+                        else -> graphColor(SugarliciousColorRole.CGM_DOT_IN_RANGE)
+                    }
+                paint.alpha = CgmGraphHistoryPresentation.RETIRED_ALPHA
+                canvas.drawCircle(px, py, dotRadius, paint)
+                paint.style = Paint.Style.FILL
+                paint.alpha = 255
+                return@forEachIndexed
+            }
+            val current = point == currentSample
             val outlineEnabled = current || dotStyle.historicalOutlineEnabled
             val outlineRadius =
                 (dotStyle.cgmRadiusDp + if (current) dotStyle.currentOutlineWidthDp else dotStyle.historicalOutlineWidthDp) * renderDensity
@@ -1172,8 +1195,8 @@ internal object NotificationGraphRenderer {
             paint.style = Paint.Style.FILL
             paint.color =
                 when {
-                    point.value < targetLow -> graphColor(SugarliciousColorRole.CGM_DOT_LOW)
-                    point.value > targetHigh -> graphColor(SugarliciousColorRole.CGM_DOT_HIGH)
+                    point.valueMgDl < targetLow -> graphColor(SugarliciousColorRole.CGM_DOT_LOW)
+                    point.valueMgDl > targetHigh -> graphColor(SugarliciousColorRole.CGM_DOT_HIGH)
                     else -> graphColor(SugarliciousColorRole.CGM_DOT_IN_RANGE)
                 }
             canvas.drawCircle(

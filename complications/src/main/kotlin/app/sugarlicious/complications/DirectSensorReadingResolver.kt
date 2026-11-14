@@ -402,5 +402,5 @@ internal fun canonicalWearHistory(
         preferredSource = preferredSource,
         windowMs = 24 * 60 * 60_000L,
         futureToleranceMs = CgmSourcePolicy().futureToleranceMs,
-        maxPoints = 300,
+        maxPoints = 2000,
     )

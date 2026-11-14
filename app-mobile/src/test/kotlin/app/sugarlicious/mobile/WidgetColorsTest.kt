@@ -160,6 +160,33 @@ class WidgetColorsTest {
     }
 
     @Test
+    fun `widget graph retains overlapping retired and active sensor measurements`() {
+        val now = 10_000_000L
+        val retired = GlucoseSample(110.0, now - 60_000L, source = DataSourceId.ANDROID_APS, sensorId = "old")
+        val active = GlucoseSample(120.0, now - 60_000L, source = DataSourceId.ANDROID_APS, sensorId = "new")
+        val state =
+            TherapyDisplayState(
+                source = DataSourceId.ANDROID_APS,
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, Trend.FLAT, now - 60_000L, source = DataSourceId.ANDROID_APS, sensorId = "new"),
+                glucoseHistory = listOf(retired, active),
+            )
+        val samples = canonicalWidgetSamples(state, now)
+        assertEquals(2, samples.size)
+        val identity =
+            app.sugarlicious.model.CgmGraphHistoryPresentation
+                .identity(state.glucose)
+        assertTrue(
+            app.sugarlicious.model.CgmGraphHistoryPresentation
+                .isRetired(samples.first { it.sensorId == "old" }, identity),
+        )
+        assertFalse(
+            app.sugarlicious.model.CgmGraphHistoryPresentation
+                .isRetired(samples.first { it.sensorId == "new" }, identity),
+        )
+    }
+
+    @Test
     fun `graph widget renders canonical points and is registered`() {
         val now = 10_000_000L
         val palette =

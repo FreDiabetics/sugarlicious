@@ -142,6 +142,7 @@ data class CgmAlarm(
     val acknowledgedAtEpochMs: Long? = null,
     val sensorId: String? = null,
     val sessionId: String? = null,
+    val triggerGlucoseMgDl: Double? = null,
 )
 
 @Serializable
@@ -204,6 +205,7 @@ object CgmAlarmEngine {
                         readingId = reading?.id,
                         sensorId = reading?.sensorId,
                         sessionId = reading?.sessionId,
+                        triggerGlucoseMgDl = reading?.glucoseMgDl,
                     )
             } else if (!active && old != null && old.state != CgmAlarmState.RESOLVED) {
                 next[type] = old.copy(state = CgmAlarmState.RESOLVED)

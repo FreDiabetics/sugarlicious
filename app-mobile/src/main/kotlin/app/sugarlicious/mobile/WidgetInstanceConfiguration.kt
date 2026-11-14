@@ -1197,7 +1197,7 @@ internal fun WidgetSettingsActionPill(
     onSave: () -> Unit,
 ) {
     Surface(
-        modifier = modifier.width(220.dp).height(52.dp),
+        modifier = modifier.width(220.dp).height(52.dp).floatingSurfaceOutline(OneUiWidgetStyle.action, RoundedCornerShape(999.dp)),
         color = OneUiWidgetStyle.action,
         shape = RoundedCornerShape(999.dp),
         shadowElevation = 0.dp,

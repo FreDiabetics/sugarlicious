@@ -1,6 +1,7 @@
 package app.sugarlicious.mobile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -9,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -70,7 +72,20 @@ internal fun measuredSettingsExpandedTitleHeightDp(title: String): Float {
 internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier = Modifier, state: SettingsSubmenuHeaderState = settingsSubmenuHeaderState(0f, 0f, 160f, 88f), title: String = "Widget-Einstellungen") {
     val height = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp
     Row(modifier.fillMaxWidth().heightIn(min = height.dp).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack, Modifier.align(Alignment.Bottom).size(48.dp).background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)) {
+        IconButton(
+            onBack,
+            Modifier
+                .align(Alignment.Bottom)
+                .size(48.dp)
+                .background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)
+                .border(
+                    FloatingSurfaceOutline.WIDTH_DP.dp,
+                    androidx.compose.ui.graphics
+                        .Color(FloatingSurfaceOutline.color(OneUiWidgetStyle.card.toArgb()))
+                        .copy(alpha = 36f / 255f * state.backCircleAlpha),
+                    androidx.compose.foundation.shape.CircleShape,
+                ),
+        ) {
             Icon(painterResource(R.drawable.ic_oneui_back), "Zurück", tint = OneUiWidgetStyle.primary, modifier = Modifier.size(22.dp))
         }
         Text(

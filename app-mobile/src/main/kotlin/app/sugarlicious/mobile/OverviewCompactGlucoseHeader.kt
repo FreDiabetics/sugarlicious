@@ -2,29 +2,33 @@ package app.sugarlicious.mobile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
@@ -43,6 +47,7 @@ internal fun OverviewCompactGlucoseHeader(
     modifier: Modifier = Modifier,
     onWatch: (() -> Unit)? = null,
     onSettings: (() -> Unit)? = null,
+    inTargetRange: Boolean = false,
 ) {
     val background = SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_GLUCOSE_PILL)
     val readableGlucose =
@@ -59,23 +64,25 @@ internal fun OverviewCompactGlucoseHeader(
         modifier
             .padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp)
             .fillMaxWidth()
-            .drawWithCache {
-                val offsetY = 10.dp.toPx()
-                val radius = minOf(40.dp.toPx(), size.height / 2f, size.width / 2f)
-                val strength = if (SugarliciousColors.palette.isLight) .32f else .78f
-                val shadow = Color.Black.copy(alpha = strength)
-                onDrawBehind {
-                    // Reuse the pill silhouette; only its downward offset remains visible.
-                    drawRoundRect(shadow, Offset(0f, offsetY), size, CornerRadius(radius))
-                }
-            }.background(background, RoundedCornerShape(40.dp))
+            .dropShadow(
+                RoundedCornerShape(40.dp),
+                Shadow(
+                    radius = 5.dp,
+                    color = Color.Black.copy(alpha = if (SugarliciousColors.palette.isLight) .32f else .78f),
+                    offset = DpOffset(0.dp, 5.dp),
+                ),
+            ).background(background, RoundedCornerShape(40.dp))
+            .floatingSurfaceOutline(background, RoundedCornerShape(40.dp))
             .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CompactReading(glucose, readableGlucose, trend, delta, unit, age, Modifier.weight(1f).offset(x = 8.dp))
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_glucose_blooddrop), "Glukose", tint = if (inTargetRange) SugarliciousColors.BrandGreen else color, modifier = Modifier.requiredSize(52.dp).offset(x = (-3).dp))
+        }
+        CompactReading(glucose, readableGlucose, trend, delta, unit, age, Modifier.weight(1f))
         if (onWatch != null && onSettings != null) {
-            OverviewActionMenu(onWatch, onSettings)
+            OverviewActionMenu(onWatch, onSettings, iconScale = 1.15f)
         }
     }
 }
@@ -110,12 +117,13 @@ private fun CompactReading(glucose: String, color: Color, trend: Trend, delta: S
         val arrowDp = LocalSugarliciousTrendArrowMaxSize.current?.let { minOf(arrowHeight.dp, it) } ?: arrowHeight.dp
         val trendWidth = with(density) { arrowDp.toPx() } * (TrendVisuals.spec(trend)?.aspectRatio ?: 0f)
         val internalGap = with(density) { 6.dp.toPx() }
-        val gap = with(density) { 8.dp.toPx() }
+        val gap = with(density) { 14.dp.toPx() }
         val available = constraints.maxWidth.toFloat().coerceAtLeast(1f)
-        val jointScale = minOf(1f, (available - internalGap).coerceAtLeast(1f) / (glucoseWidth + trendWidth + gap + metadataWidth).coerceAtLeast(1f))
+        val maximumScale = 1.25f
+        val jointScale = minOf(maximumScale, (available - internalGap).coerceAtLeast(1f) / (glucoseWidth + trendWidth + gap + metadataWidth).coerceAtLeast(1f))
         val stacked = jointScale < .75f
-        val glucoseScale = if (stacked) minOf(1f, (available - internalGap).coerceAtLeast(1f) / (glucoseWidth + trendWidth).coerceAtLeast(1f)) else jointScale
-        val metadataScale = if (stacked) minOf(1f, available / metadataWidth.toFloat().coerceAtLeast(1f)) else jointScale
+        val glucoseScale = if (stacked) minOf(maximumScale, (available - internalGap).coerceAtLeast(1f) / (glucoseWidth + trendWidth).coerceAtLeast(1f)) else jointScale
+        val metadataScale = if (stacked) minOf(maximumScale, available / metadataWidth.toFloat().coerceAtLeast(1f)) else jointScale
         val reading: @Composable () -> Unit = {
             GlucoseValueAndTrend(
                 glucose,
@@ -126,6 +134,7 @@ private fun CompactReading(glucose: String, color: Color, trend: Trend, delta: S
                     trendHeight = arrowDp.value * glucoseScale,
                 ),
                 trendColor = SugarliciousColors.TextPrimary,
+                centerTextBounds = true,
             )
         }
         if (stacked) {
@@ -137,7 +146,7 @@ private fun CompactReading(glucose: String, color: Color, trend: Trend, delta: S
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 reading()
                 androidx.compose.foundation.layout
-                    .Spacer(Modifier.size((8f * jointScale).dp))
+                    .Spacer(Modifier.size((14f * jointScale).dp))
                 OverviewReadingMetadata(delta, unit, age, compact = true, scale = metadataScale)
             }
         }

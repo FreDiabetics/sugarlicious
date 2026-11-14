@@ -27,7 +27,7 @@ internal fun OverviewInlineHeader(
             Box(Modifier.fillMaxWidth()) {
                 glucoseContent()
                 Box(Modifier.align(Alignment.TopEnd).padding(top = 22.dp)) {
-                    OverviewActionMenu(onWatch, onSettings)
+                    OverviewActionMenu(onWatch, onSettings, iconScale = 1.15f)
                 }
             }
         }

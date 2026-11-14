@@ -40,6 +40,7 @@ import androidx.glance.layout.width
 import androidx.glance.unit.ColorProvider
 import app.sugarlicious.model.AppearanceMode
 import app.sugarlicious.model.CanonicalCgmHistory
+import app.sugarlicious.model.CgmGraphHistoryPresentation
 import app.sugarlicious.model.CgmGraphPolicy
 import app.sugarlicious.model.CgmGraphScaleMode
 import app.sugarlicious.model.CgmGraphYScale
@@ -1570,8 +1571,16 @@ internal fun renderWidgetGraph(
     fun x(timestamp: Long): Float = widgetGraphPointX(timestamp, timeWindow, plot)
     val liveX = x(timeWindow.liveEdgeEpochMs)
     val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    val currentSample = samples.maxByOrNull(GlucoseSample::measuredAtEpochMs)
-    samples.forEach { sample ->
+    val activeSensor =
+        CgmGraphHistoryPresentation.identity(state?.glucose)
+            ?: CgmGraphHistoryPresentation.latestIdentity(allSamples)
+    val retiredPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = CgmGraphHistoryPresentation.RETIRED_OUTLINE_WIDTH_DP * renderDensity
+        }
+    val currentSample = samples.filterNot { CgmGraphHistoryPresentation.isRetired(it, activeSensor) }.maxByOrNull(GlucoseSample::measuredAtEpochMs)
+    samples.sortedByDescending { CgmGraphHistoryPresentation.isRetired(it, activeSensor) }.forEach { sample ->
         // The widget is redrawn as one bitmap. Do not pin multiple samples to an inner edge:
         // clipping is handled by the widget shape and every X position remains timestamp-derived.
         val pointX = x(sample.measuredAtEpochMs)
@@ -1585,6 +1594,12 @@ internal fun renderWidgetGraph(
                 },
             )
         val radius = metrics.dotRadiusPx
+        if (CgmGraphHistoryPresentation.isRetired(sample, activeSensor)) {
+            retiredPaint.color = pointPaint.color
+            retiredPaint.alpha = CgmGraphHistoryPresentation.RETIRED_ALPHA
+            canvas.drawCircle(pointX, y, radius, retiredPaint)
+            return@forEach
+        }
         canvas.drawCircle(pointX, y, radius, pointPaint)
         val isCurrent = sample == currentSample
         val outlineEnabled = isCurrent || configuration.historicalDotOutlineEnabled
@@ -2403,5 +2418,6 @@ internal fun canonicalWidgetSamples(
             nowEpochMs = now,
             preferredSource = state?.source,
             windowMs = windowMs,
+            maxPoints = DisplayHistoryAccumulator.MAX_POINTS,
         ).filter { it.measuredAtEpochMs in (now - windowMs)..now }
 }

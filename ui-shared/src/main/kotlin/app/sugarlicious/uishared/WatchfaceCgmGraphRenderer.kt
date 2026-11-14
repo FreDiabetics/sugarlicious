@@ -27,6 +27,9 @@ object WatchfaceCgmGraphRenderer {
         targetLines: Boolean = true,
         semicircle: Boolean = false,
         showThresholdLabels: Boolean = semicircle,
+        activeIdentity: app.sugarlicious.model.CgmGraphSensorIdentity? =
+            app.sugarlicious.model.CgmGraphHistoryPresentation
+                .latestIdentity(history),
     ) {
         if (width <= 0 || height <= 0 || !thresholds.isValid) return
         val displayWindow = GraphTimeWindow.live(window.endEpochMs, 5_400_000L)
@@ -120,16 +123,32 @@ object WatchfaceCgmGraphRenderer {
                 }
             return toneColor(tone)
         }
-        val current = samples.last()
+        val current =
+            samples.lastOrNull {
+                !app.sugarlicious.model.CgmGraphHistoryPresentation
+                    .isRetired(it, activeIdentity)
+            }
         canvas.withSave {
-            canvas.clipOutPath(Path().apply { addCircle(x(current), y(current.valueMgDl), 4.4f * unit, Path.Direction.CW) })
-            samples.forEachIndexed { index, sample ->
-                if (index != samples.lastIndex) {
+            if (current != null) canvas.clipOutPath(Path().apply { addCircle(x(current), y(current.valueMgDl), 4.4f * unit, Path.Direction.CW) })
+            samples.forEach { sample ->
+                if (sample != current) {
                     dot.color = pointColor(sample.valueMgDl)
+                    val retired =
+                        app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .isRetired(sample, activeIdentity)
+                    dot.style = if (retired) Paint.Style.STROKE else Paint.Style.FILL
+                    if (retired) {
+                        dot.strokeWidth = app.sugarlicious.model.CgmGraphHistoryPresentation.RETIRED_OUTLINE_WIDTH_DP * unit
+                        dot.color =
+                            androidx.core.graphics.ColorUtils
+                                .setAlphaComponent(dot.color, app.sugarlicious.model.CgmGraphHistoryPresentation.RETIRED_ALPHA)
+                    }
                     canvas.drawCircle(x(sample), y(sample.valueMgDl), 3.1f * unit, dot)
                 }
             }
         }
+        dot.style = Paint.Style.FILL
+        if (current == null) return
         // Orbit's opaque center hides guide labels beneath the newest sample; preserve its ring.
         if (semicircle) {
             dot.color = Color.BLACK

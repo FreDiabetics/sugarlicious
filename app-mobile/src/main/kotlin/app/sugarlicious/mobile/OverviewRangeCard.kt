@@ -141,6 +141,11 @@ internal fun OverviewRangeCard(state: TherapyDisplayState?, now: Long, showTir: 
                 }
             }
         }
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+            Text(ranges.averageMgDl?.let { "Ø ${kotlin.math.round(it).toInt()}" } ?: "—", color = SugarliciousColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text("mg/dL · Durchschnitt", color = SugarliciousColors.TextSecondary, style = oneUiMenuTypography.bodyMedium)
+        }
+        Spacer(Modifier.height(18.dp))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             @Composable fun RangeColumn(tight: Boolean, title: String, bounds: String, modifier: Modifier) {
                 val stats = if (tight) ranges.titr else ranges.tir
@@ -154,28 +159,28 @@ internal fun OverviewRangeCard(state: TherapyDisplayState?, now: Long, showTir: 
                             .value
                     }
                 Column(modifier) {
+                    Text(stats.inRange?.let { "$it%" } ?: "—", color = SugarliciousColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     Column(
-                        Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(vertical = 8.dp),
+                        Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp),
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(title, color = SugarliciousColors.TextPrimary, style = oneUiMenuTypography.bodyLarge, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
                         Text(bounds, color = SugarliciousColors.TextSecondary, style = oneUiMenuTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp))
                     }
-                    Text(stats.inRange?.let { "$it%" } ?: "—", color = SugarliciousColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(6.dp))
                     TirProgressColumn(stats, Modifier.fillMaxWidth(), animated)
                 }
             }
             if (showTir && showTitr && maxWidth < (320f * LocalDensity.current.fontScale).dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    RangeColumn(true, "Time in Tight Range", "70–140 mg/dL", Modifier.fillMaxWidth())
-                    RangeColumn(false, "Time in Range", "70–180 mg/dL", Modifier.fillMaxWidth())
+                    RangeColumn(true, "Time In Tight Range", "70–140 mg/dL", Modifier.fillMaxWidth())
+                    RangeColumn(false, "Time In Range", "70–180 mg/dL", Modifier.fillMaxWidth())
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    if (showTitr) RangeColumn(true, "Time in Tight Range", "70–140 mg/dL", Modifier.weight(1f))
-                    if (showTir) RangeColumn(false, "Time in Range", "70–180 mg/dL", Modifier.weight(1f))
+                    if (showTitr) RangeColumn(true, "Time In Tight Range", "70–140 mg/dL", Modifier.weight(1f))
+                    if (showTir) RangeColumn(false, "Time In Range", "70–180 mg/dL", Modifier.weight(1f))
                 }
             }
         }

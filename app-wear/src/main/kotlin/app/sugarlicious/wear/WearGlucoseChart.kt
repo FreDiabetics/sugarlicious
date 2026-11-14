@@ -131,6 +131,10 @@ class WearGlucoseChart
                 TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 1f, resources.displayMetrics),
                 SharedWearCgmGraphInput(
                     history = history,
+                    activeIdentity =
+                        app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .identity(state?.glucose) ?: app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .latestIdentity(history),
                     predictions = predictions,
                     timeWindow = window,
                     nowEpochMs = now,

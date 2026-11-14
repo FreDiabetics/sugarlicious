@@ -8,6 +8,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 
@@ -33,6 +34,29 @@ internal fun OverviewReadingMetadata(delta: String, unit: String, age: String, c
                 withStyle(label) { append(" Min.") }
             }
         }
+    if (compact) {
+        val style =
+            androidx.compose.ui.text.TextStyle(
+                lineHeight = 22f.times(scale).sp,
+                platformStyle =
+                    androidx.compose.ui.text
+                        .PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle =
+                    androidx.compose.ui.text.style
+                        .LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
+            )
+        androidx.compose.foundation.layout.Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement =
+                androidx.compose.foundation.layout.Arrangement
+                    .spacedBy((3f * scale).dp),
+        ) {
+            Text(deltaText, style = style, maxLines = 1, softWrap = false, textAlign = TextAlign.Center)
+            Text(buildAnnotatedString { withStyle(label) { append("·") } }, style = style, maxLines = 1)
+            Text(ageText, style = style, maxLines = 1, softWrap = false, textAlign = TextAlign.Center)
+        }
+        return
+    }
     Text(
         buildAnnotatedString {
             append(deltaText)

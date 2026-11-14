@@ -237,7 +237,7 @@ object WearProtocol {
                 // These raw AAPS JSON documents are diagnostic input, not Wear presentation data,
                 // and can each be larger than the complete Data Layer allowance.
                 loop = state.loop?.copy(suggestedPayload = null, enactedPayload = null),
-                glucoseHistory = state.glucoseHistory.takeLast(288),
+                glucoseHistory = graphHistoryForTransport(state.glucoseHistory, 2000),
                 therapyHistory = state.therapyHistory.takeLast(288),
                 therapyEvents = state.therapyEvents.takeLast(180),
                 targetHistory = state.targetHistory.takeLast(96),
@@ -261,7 +261,7 @@ object WearProtocol {
                         )
                     transport.glucoseHistory.size > 72 ->
                         transport.copy(
-                            glucoseHistory = transport.glucoseHistory.drop(oldestQuarter(transport.glucoseHistory.size, 72)),
+                            glucoseHistory = graphHistoryForTransport(transport.glucoseHistory, transport.glucoseHistory.size - oldestQuarter(transport.glucoseHistory.size, 72)),
                         )
                     transport.glucosePredictions.any { it.samples.size > 12 } ->
                         transport.copy(
@@ -277,6 +277,27 @@ object WearProtocol {
             payload = encode(transport)
         }
         return payload
+    }
+
+    /** Keep each sensor's time span when a bounded transport must reduce visual history. */
+    private fun graphHistoryForTransport(history: List<app.sugarlicious.model.GlucoseSample>, limit: Int): List<app.sugarlicious.model.GlucoseSample> {
+        if (history.size <= limit) return history
+        val streams =
+            history
+                .groupBy { Triple(it.source, it.sensorId, it.sessionId) }
+                .values
+                .sortedBy { it.maxOf(app.sugarlicious.model.GlucoseSample::measuredAtEpochMs) }
+                .takeLast(limit)
+        val quota = (limit / streams.size).coerceAtLeast(1)
+        return streams
+            .flatMap { values ->
+                val samples = values.sortedBy(app.sugarlicious.model.GlucoseSample::measuredAtEpochMs)
+                when {
+                    samples.size <= quota -> samples
+                    quota == 1 -> samples.takeLast(1)
+                    else -> (0 until quota).map { samples[it * (samples.lastIndex) / (quota - 1)] }
+                }
+            }.sortedBy(app.sugarlicious.model.GlucoseSample::measuredAtEpochMs)
     }
 
     private fun oldestQuarter(
