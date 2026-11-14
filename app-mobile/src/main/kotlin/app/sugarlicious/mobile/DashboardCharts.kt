@@ -24,6 +24,7 @@ import androidx.core.graphics.withClip
 import app.sugarlicious.mobile.ui.theme.SugarliciousColorRole
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 import app.sugarlicious.mobile.ui.theme.derivedTargetValueArgb
+import app.sugarlicious.model.CgmGraphHistoryPresentation
 import app.sugarlicious.model.CgmGraphPolicy
 import app.sugarlicious.model.CgmGraphScaleMode
 import app.sugarlicious.model.CgmGraphYScale
@@ -1005,12 +1006,17 @@ internal class GlucoseDashboardChart
                 // This is a data-space timestamp, not a sticky viewport overlay. It may leave the plot.
                 val futureLaneVisible = end > now && now in start..end
 
-                history.forEachIndexed { index, point ->
+                val activeSensor =
+                    CgmGraphHistoryPresentation.identity(state?.glucose)
+                        ?: CgmGraphHistoryPresentation.latestIdentity(allHistory)
+                val currentSample = history.lastOrNull { !CgmGraphHistoryPresentation.isRetired(it, activeSensor) }
+                history.sortedByDescending { CgmGraphHistoryPresentation.isRetired(it, activeSensor) }.forEachIndexed { _, point ->
                     // A fixed viewport may exclude real values; never pretend they equal an edge value.
                     if (point.valueMgDl !in yScale.minimumMgDl..yScale.maximumMgDl) return@forEachIndexed
                     val mappedX = mapGraphTimeX(point.measuredAtEpochMs, start, end, timeBounds)
                     val y = mapGlucoseY(point.valueMgDl, dataPlot, yScale)
-                    val current = index == history.lastIndex
+                    val retired = CgmGraphHistoryPresentation.isRetired(point, activeSensor)
+                    val current = !retired && point == currentSample
                     val dotRadius = (cgmDotRadiusDp + if (current) 0.1f else 0f).dp
                     val outlineEnabled = current || cgmHistoricalDotOutlineEnabled
                     val outlineWidth = (if (current) cgmCurrentDotOutlineWidthDp else cgmHistoricalDotOutlineWidthDp).dp
@@ -1018,6 +1024,13 @@ internal class GlucoseDashboardChart
                     // from the largest rendered dot, so the current value remains fully visible.
                     val x = mappedX
                     fillPaint.color = dotColor(point.valueMgDl, thresholds)
+                    if (retired) {
+                        dotOutlinePaint.color = fillPaint.color
+                        dotOutlinePaint.alpha = CgmGraphHistoryPresentation.RETIRED_ALPHA
+                        dotOutlinePaint.strokeWidth = CgmGraphHistoryPresentation.RETIRED_OUTLINE_WIDTH_DP.dp
+                        canvas.drawCircle(x, y, dotRadius, dotOutlinePaint)
+                        return@forEachIndexed
+                    }
                     canvas.drawCircle(x, y, dotRadius, fillPaint)
                     if (outlineEnabled) {
                         dotOutlinePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)

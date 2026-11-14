@@ -15,6 +15,40 @@ class MobileSourceCompositionTest {
             insulin = if (source == DataSourceId.ANDROID_APS) InsulinState(totalIob = 2.0) else null,
         )
 
+    @Test fun `stored history restores verified different sessions at overlapping timestamps`() {
+        val active = GlucoseSample(120.0, now - 300_000, DataSourceId.DEXCOM_G7_APP, sensorId = "sensor", sessionId = "new")
+        val retired = active.copy(valueMgDl = 110.0, sessionId = "old")
+        val previous = state(active.source, 120.0).copy(glucoseHistory = listOf(active))
+        val raw = previous.copy(glucoseHistory = listOf(retired))
+        val restored = requireNotNull(restoreStoredMobileHistory(previous, mapOf(raw.source to raw), now))
+        assertEquals(setOf(active, retired), restored.glucoseHistory.toSet())
+    }
+
+    @Test fun `stored history keeps legacy overlap precedence when session identity is unknown`() {
+        val active = GlucoseSample(120.0, now - 300_000, DataSourceId.DEXCOM_G7_APP)
+        val ambiguous = active.copy(valueMgDl = 110.0, measuredAtEpochMs = active.measuredAtEpochMs + 30_000)
+        val previous = state(active.source, 120.0).copy(glucoseHistory = listOf(active))
+        val raw = previous.copy(glucoseHistory = listOf(ambiguous))
+        assertEquals(listOf(active), requireNotNull(restoreStoredMobileHistory(previous, mapOf(raw.source to raw), now)).glucoseHistory)
+    }
+
+    @Test fun `Share display archive retains equal values from verified different sensors and sessions`() {
+        listOf("sensor" to "old", "old-sensor" to "new").forEach { (sensor, session) ->
+            val active = GlucoseSample(120.0, now - 300_000, DataSourceId.DEXCOM_SHARE, sensorId = "sensor", sessionId = "new")
+            val retired = active.copy(measuredAtEpochMs = active.measuredAtEpochMs - 1_000, sensorId = sensor, sessionId = session)
+            val previous = state(active.source, 120.0).copy(glucose = null, glucoseHistory = listOf(retired))
+            val current = previous.copy(glucoseHistory = listOf(active))
+            assertEquals(setOf(active, retired), retainMobileDisplayHistory(previous, current, now).glucoseHistory.toSet())
+        }
+    }
+
+    @Test fun `Share display archive keeps legacy equal value overlap deduplication without identity`() {
+        val archived = GlucoseSample(120.0, now - 300_000, DataSourceId.DEXCOM_SHARE)
+        val incoming = archived.copy(measuredAtEpochMs = archived.measuredAtEpochMs + 1_000)
+        val previous = state(archived.source, 120.0).copy(glucose = null, glucoseHistory = listOf(archived))
+        assertEquals(listOf(archived), retainMobileDisplayHistory(previous, previous.copy(glucoseHistory = listOf(incoming)), now).glucoseHistory)
+    }
+
     @Test fun `Manufacturer dots and AndroidAPS forecasts are independent streams`() {
         val forecast = GlucosePrediction(PredictionKind.IOB, listOf(GlucoseSample(120.0, now), GlucoseSample(110.0, now + 300_000)))
         val therapyBridge = state(DataSourceId.ANDROID_APS, 120.0).copy(glucosePredictions = listOf(forecast))

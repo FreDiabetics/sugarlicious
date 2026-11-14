@@ -78,11 +78,11 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
-    @Test fun `settings overview hides back while submenus keep it`() {
+    @Test fun `settings overview and submenus both provide back navigation`() {
         val controller = createActivity()
         val activity = controller.get()
         openSettings(activity)
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_back).visibility)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_back).visibility)
         openSettingsCategory(activity, "general")
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_back).visibility)
         controller.pause().stop().destroy()
@@ -204,12 +204,18 @@ class MainActivityTest {
         val update = MainActivity::class.java.getDeclaredMethod("updateSettingsScrollHeader", Int::class.javaPrimitiveType).apply { isAccessible = true }
         update.invoke(activity, 0)
         layout()
+        val bar = activity.findViewById<View>(R.id.top_app_bar)
+        val initialBackOffset = bar.translationY
+        assertTrue("Overview back button starts above the first card", initialBackOffset > 0f)
         val heading = activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<TextView>("settings_scroll_title")
         val height = heading.height
         update.invoke(activity, (40 * activity.resources.displayMetrics.density).toInt())
         assertFalse("The first drag must not remeasure the scrolling title", heading.isLayoutRequested)
         assertEquals(height, heading.height)
         assertTrue(heading.scaleX < 1f)
+        assertTrue("Back button travels upwards with the first card", bar.translationY < initialBackOffset)
+        update.invoke(activity, 10000)
+        assertEquals("Back button stays at the top after scrolling", 0f, bar.translationY, .01f)
         controller.pause().stop().destroy()
     }
 

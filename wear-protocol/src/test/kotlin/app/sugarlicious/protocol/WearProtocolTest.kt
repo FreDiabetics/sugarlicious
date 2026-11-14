@@ -108,6 +108,19 @@ class WearProtocolTest {
         assertEquals(null, decoded.loop?.enactedPayload)
     }
 
+    @Test fun `bounded transport keeps both overlapping sensor time spans`() {
+        val now = 2_000_000_000L
+        val history = listOf("old", "new").flatMap { sensor -> (0 until 288).map { GlucoseSample(120.0, now - (287 - it) * 300_000L, sensorId = sensor, sessionId = "$sensor-session") } }.sortedBy(GlucoseSample::measuredAtEpochMs)
+        val payload = WearProtocol.encodeStateForTransport(TherapyDisplayState(receivedAtEpochMs = now, glucoseHistory = history), maxBytes = 12000)
+        val decoded = WearProtocol.decode(payload)
+        assertTrue(payload.size <= 12000)
+        for (sensor in listOf("old", "new")) {
+            val stream = decoded.glucoseHistory.filter { it.sensorId == sensor }
+            assertEquals(now - 287 * 300_000L, stream.first().measuredAtEpochMs)
+            assertEquals(now, stream.last().measuredAtEpochMs)
+        }
+    }
+
     @Test fun migratesProtocolOneContractStoredInVersionField() {
         val legacy = """{"protocolVersion":1,"state":{"schemaVersion":1,"source":"ANDROID_APS","sourceVersion":"AAPS_EXTENDED_STATUS_V1","receivedAtEpochMs":2}}"""
         val migrated = WearProtocol.decode(legacy.encodeToByteArray())

@@ -34,7 +34,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 
 @Composable
-internal fun OverviewActionMenu(onWatch: () -> Unit, onSettings: () -> Unit) {
+internal fun OverviewActionMenu(onWatch: () -> Unit, onSettings: () -> Unit, iconScale: Float = 1f) {
     val expanded = remember { MutableTransitionState(false) }
     val offset = with(LocalDensity.current) { 52.dp.roundToPx() }
     Box {
@@ -42,7 +42,7 @@ internal fun OverviewActionMenu(onWatch: () -> Unit, onSettings: () -> Unit) {
             Modifier.size(48.dp).clickable(onClickLabel = "Menü öffnen oder schließen") { expanded.targetState = !expanded.targetState },
             contentAlignment = Alignment.Center,
         ) {
-            SugarliciousIcon(R.drawable.ic_foreground, "Menü", Modifier.requiredSize(58.dp), SugarliciousColors.BrandGreen)
+            SugarliciousIcon(R.drawable.ic_foreground, "Menü", Modifier.requiredSize((58f * iconScale).dp), SugarliciousColors.BrandGreen)
         }
         if (expanded.currentState || expanded.targetState) {
             Popup(alignment = Alignment.TopEnd, offset = IntOffset(0, offset), onDismissRequest = { expanded.targetState = false }, properties = PopupProperties(focusable = false, dismissOnClickOutside = false)) {

@@ -587,7 +587,7 @@ class MainActivity : ComponentActivity() {
             }
             DashboardScreen.SETTINGS, DashboardScreen.WATCH -> {
                 bar.visibility = View.VISIBLE
-                back.visibility = if (screen == DashboardScreen.SETTINGS && factory.settingsIsRoot) View.GONE else View.VISIBLE
+                back.visibility = View.VISIBLE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
                 title.text =
@@ -786,6 +786,7 @@ class MainActivity : ComponentActivity() {
             }
             bar.translationY = state.rowOffsetDp * density
             settingsBackCircle.setColor(MobileSettingsStyle.card(SugarliciousColors.palette.isLight))
+            settingsBackCircle.setStroke((FloatingSurfaceOutline.WIDTH_DP * density).toInt().coerceAtLeast(1), FloatingSurfaceOutline.color(MobileSettingsStyle.card(SugarliciousColors.palette.isLight)))
             settingsBackCircle.alpha = (state.backCircleAlpha * 255).toInt()
             back.background = settingsBackCircle
             bar.setBackgroundColor(Color.TRANSPARENT)
@@ -823,6 +824,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         val firstCard = (0 until settingsContent.childCount).map { settingsContent.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
+        if (screen == DashboardScreen.SETTINGS && factory.settingsIsRoot) {
+            bar.translationY = ((firstCard?.top ?: heading.bottom) + content.paddingTop - scrollY - bar.height - SETTINGS_SUBMENU_CARD_GAP_DP * density).coerceAtLeast(0f)
+        }
         val state = settingsScrollHeaderState(scrollY / density, heading.height / density, ((firstCard?.top ?: heading.bottom) + content.paddingTop) / density, compact.heightDp)
         heading.alpha = state.titleAlpha
         heading.translationY = state.titleOffsetDp * density
@@ -840,6 +844,7 @@ class MainActivity : ComponentActivity() {
             translationX = targetLeft - originalLeft * state.titleScale
         }
         settingsBackCircle.setColor(SugarliciousColors.argb(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.SURFACE))
+        settingsBackCircle.setStroke((FloatingSurfaceOutline.WIDTH_DP * density).toInt().coerceAtLeast(1), FloatingSurfaceOutline.color(SugarliciousColors.argb(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.SURFACE)))
         settingsBackCircle.alpha = (state.backCircleAlpha * 255).toInt()
         findViewById<View>(R.id.top_back).background = settingsBackCircle
         val shadeColor = SugarliciousColors.argb(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.BACKGROUND)

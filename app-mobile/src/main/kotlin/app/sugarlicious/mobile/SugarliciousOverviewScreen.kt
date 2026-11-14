@@ -336,6 +336,7 @@ internal fun SugarliciousOverviewScreen(
                 Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = collapseFraction() },
                 onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
                 onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
+                inTargetRange = TherapyDisplayFormatter.freshness(state, now) in setOf(app.sugarlicious.model.Freshness.CURRENT, app.sugarlicious.model.Freshness.DELAYED) && glucose?.valueMgDl?.let { it in preferences.cgmThresholds.lowMgDl..preferences.cgmThresholds.highMgDl } == true,
             )
         }
     }
@@ -385,13 +386,28 @@ internal fun GlucoseValueAndTrend(
     visualSpec: GlucoseVisualSpec,
     trendStyle: app.sugarlicious.model.TrendArrowStyle = MobileTrendArrowAppearance.style,
     trendColor: Color = glucoseColor,
+    centerTextBounds: Boolean = false,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = glucoseText,
             color = glucoseColor,
             fontSize = visualSpec.glucoseTextSize.sp,
-            lineHeight = (visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP / GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP).sp,
+            lineHeight = (if (centerTextBounds) visualSpec.glucoseTextSize else visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP / GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP).sp,
+            style =
+                if (centerTextBounds) {
+                    androidx.compose.material3.LocalTextStyle.current
+                        .copy(
+                            platformStyle =
+                                androidx.compose.ui.text
+                                    .PlatformTextStyle(includeFontPadding = false),
+                            lineHeightStyle =
+                                androidx.compose.ui.text.style
+                                    .LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
+                        )
+                } else {
+                    androidx.compose.material3.LocalTextStyle.current
+                },
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.8).sp,
         )

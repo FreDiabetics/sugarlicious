@@ -1031,6 +1031,10 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             input =
                 SharedWearCgmGraphInput(
                     history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours),
+                    activeIdentity =
+                        app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .identity(state?.glucose) ?: app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .latestIdentity(DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours)),
                     timeWindow = directToWatchGraphWindow(nowEpochMs, hours),
                     nowEpochMs = nowEpochMs,
                     thresholds = thresholds,

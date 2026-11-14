@@ -536,6 +536,9 @@ internal fun renderWearTileGraph(
         input =
             SharedWearCgmGraphInput(
                 history = wearTileGraphPoints(state, now, preferences.graphHours, bitmap.width.toFloat()).map(WearTileGraphPoint::sample),
+                activeIdentity =
+                    app.sugarlicious.model.CgmGraphHistoryPresentation
+                        .identity(state?.glucose),
                 timeWindow = GraphTimeWindow.live(now, preferences.graphHours * 60L * 60_000L),
                 nowEpochMs = now,
                 thresholds = preferences.cgmThresholds,

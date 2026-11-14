@@ -748,6 +748,10 @@ abstract class TherapyComplicationService(
                 thresholds,
                 semicircle = true,
                 showThresholdLabels = graphProfile == WatchfaceGraphProfile.ORBIT,
+                activeIdentity =
+                    app.sugarlicious.model.CgmGraphHistoryPresentation
+                        .identity(state?.glucose) ?: app.sugarlicious.model.CgmGraphHistoryPresentation
+                        .latestIdentity(samples),
             )
             return
         }
@@ -760,6 +764,10 @@ abstract class TherapyComplicationService(
             input =
                 SharedWearCgmGraphInput(
                     history = samples,
+                    activeIdentity =
+                        app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .identity(state?.glucose) ?: app.sugarlicious.model.CgmGraphHistoryPresentation
+                            .latestIdentity(samples),
                     timeWindow = timeWindow,
                     nowEpochMs = now,
                     thresholds = thresholds,

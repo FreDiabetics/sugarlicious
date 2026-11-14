@@ -97,7 +97,7 @@ internal fun OverviewGlucoseHero(
             }
             Spacer(Modifier.height(6.dp))
             GlucoseRangeBar(glucoseMgDl.takeIf { active }, thresholds, waveHeight.value.coerceAtLeast(66f))
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(28.dp))
             FlowRow(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftMotionInfoPill(
                     SharedUiR.drawable.ic_metadata_delta,
@@ -116,16 +116,16 @@ internal fun OverviewGlucoseHero(
 @Composable
 private fun SoftMotionInfoPill(icon: Int, text: androidx.compose.ui.text.AnnotatedString) {
     val fontScale = LocalDensity.current.fontScale
-    val iconSize = ((if (icon == SharedUiR.drawable.ic_metadata_delta) 19f else 17f) * fontScale).dp
+    val iconSize = (22f * fontScale).dp
     Row(
-        Modifier.background(SugarliciousColors.Surface, RoundedCornerShape(40.dp)).padding(horizontal = 14.dp, vertical = 9.dp),
+        Modifier.background(SugarliciousColors.Surface, RoundedCornerShape(40.dp)).padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Box(Modifier.size((20f * fontScale).dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size((23f * fontScale).dp), contentAlignment = Alignment.Center) {
             SugarliciousIcon(icon, null, Modifier.size(iconSize), SugarliciousColors.TextSecondary)
         }
-        Text(text, color = SugarliciousColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, color = SugarliciousColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

@@ -23,6 +23,7 @@ internal data class MeasuredRangeStats(
 internal data class DailyGlucoseRanges(
     val tir: MeasuredRangeStats,
     val titr: MeasuredRangeStats,
+    val averageMgDl: Double? = null,
 )
 
 private const val DEFAULT_CADENCE_MS = 300_000L
@@ -94,7 +95,8 @@ internal fun dailyGlucoseRanges(
         fun percent(duration: Double) = (100.0 * duration / total).roundToInt().coerceIn(0, 100)
         return MeasuredRangeStats(sampleCount, percent(inside), percent(below), percent(above), total, below, above)
     }
-    return DailyGlucoseRanges(stats(thresholds?.lowMgDl ?: 70.0, thresholds?.highMgDl ?: 180.0), stats(70.0, 140.0))
+    val average = if (total > 0L) covered.sumOf { (it.from + it.to) / 2.0 * it.durationMs } / total else null
+    return DailyGlucoseRanges(stats(thresholds?.lowMgDl ?: 70.0, thresholds?.highMgDl ?: 180.0), stats(70.0, 140.0), average)
 }
 
 private data class CoveredGlucoseInterval(

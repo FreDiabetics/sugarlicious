@@ -799,7 +799,7 @@ class StateDataLayerService : WearableListenerService() {
             24 * 60 * 60_000L
         private const val FUTURE_TOLERANCE_MS =
             5 * 60_000L
-        private const val MAX_HISTORY_POINTS = 300
+        private const val MAX_HISTORY_POINTS = 2000
 
         private const val COMPLICATION_SETUP_PREFS =
             "complication_setup"

@@ -116,6 +116,11 @@ internal fun mergeMobileSourceInput(previous: TherapyDisplayState?, incoming: Th
     )
 }
 
+/** Unknown identities keep legacy overlap precedence; verified identity changes remain distinct. */
+private fun verifiedDifferentSensorSession(first: GlucoseSample, second: GlucoseSample): Boolean =
+    (!first.sensorId.isNullOrBlank() && !second.sensorId.isNullOrBlank() && first.sensorId != second.sensorId) ||
+        (!first.sessionId.isNullOrBlank() && !second.sessionId.isNullOrBlank() && first.sessionId != second.sessionId)
+
 /** The display archive survives source selection; raw source caches remain isolated. */
 internal fun retainMobileDisplayHistory(previous: TherapyDisplayState?, current: TherapyDisplayState, now: Long): TherapyDisplayState {
     if (previous == null) return current
@@ -141,7 +146,7 @@ internal fun retainMobileDisplayHistory(previous: TherapyDisplayState?, current:
                 overlaps(it, candidate) ||
                     app.sugarlicious.model.CanonicalCgmIdentity
                         .sameMeasurement(it, candidate) ||
-                    (it.source == DataSourceId.DEXCOM_SHARE && candidate.source == it.source && it.valueMgDl == candidate.valueMgDl && kotlin.math.abs(it.measuredAtEpochMs - candidate.measuredAtEpochMs) <= 5_000L)
+                    (it.source == DataSourceId.DEXCOM_SHARE && candidate.source == it.source && !verifiedDifferentSensorSession(it, candidate) && it.valueMgDl == candidate.valueMgDl && kotlin.math.abs(it.measuredAtEpochMs - candidate.measuredAtEpochMs) <= 5_000L)
             }
         ) {
             displayed += candidate
@@ -163,7 +168,7 @@ internal fun restoreStoredMobileHistory(previous: TherapyDisplayState?, inputs: 
     val publishedThrough = (previous.glucoseHistory.map { it.measuredAtEpochMs } + listOfNotNull(previous.glucose?.measuredAtEpochMs)).maxOrNull() ?: return previous
     val existing = previous.glucoseHistory.toMutableList()
     inputs.values.flatMap { it.glucoseHistory }.sortedBy { it.measuredAtEpochMs }.forEach { point ->
-        if (point.measuredAtEpochMs <= publishedThrough && existing.none { kotlin.math.abs(it.measuredAtEpochMs - point.measuredAtEpochMs) <= 90_000L }) existing += point
+        if (point.measuredAtEpochMs <= publishedThrough && existing.none { !verifiedDifferentSensorSession(it, point) && kotlin.math.abs(it.measuredAtEpochMs - point.measuredAtEpochMs) <= 90_000L }) existing += point
     }
     return previous.copy(glucoseHistory = CanonicalCgmHistory.merge(existing, now, maxPoints = DisplayHistoryAccumulator.MAX_POINTS))
 }
