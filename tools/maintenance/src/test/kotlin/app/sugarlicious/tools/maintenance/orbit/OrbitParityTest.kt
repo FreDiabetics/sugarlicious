@@ -13,7 +13,8 @@ class OrbitParityTest {
     @Test fun `native generator preserves complete independent Python output semantics`() {
         val directory = Files.createTempDirectory("orbit-native-parity")
         try {
-            generateOrbit(directory)
+            // The pinned reference predates the popup. The new layer is covered by GraphPopupTargetsTest.
+            generateOrbit(directory, includeGraphPopup = false)
             for ((relative, reference) in listOf("raw/watchface.xml" to "watchface.xml", "values/strings.xml" to "strings.xml")) {
                 val expected = directory.resolve("expected-$reference")
                 javaClass.getResourceAsStream("/orbit-reference/$reference").use { Files.copy(requireNotNull(it), expected) }

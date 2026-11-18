@@ -254,7 +254,7 @@ class WatchfaceContractsTest {
         assertNull(content.one(".//RoundRectangle"))
         assertNull(content.one("PartDraw"))
         val clipped = content.need(".//Group[@name='graph-clipped-content']")
-        assertEquals("[CONFIGURATION.materialAccent.0]", clipped.attr("tintColor"))
+        assertEquals("[CONFIGURATION.materialAccent.0]", clipped.need("Group[@name='graph-cap-ink']").attr("tintColor"))
         val mask = clipped.need("PartDraw[@renderMode='MASK']/Arc")
         assertEquals(listOf("256", "256", "165", "165", "270", "450"), listOf("centerX", "centerY", "width", "height", "startAngle", "endAngle").map(mask::attr))
         assertEquals("165", mask.need("Stroke").attr("thickness"))

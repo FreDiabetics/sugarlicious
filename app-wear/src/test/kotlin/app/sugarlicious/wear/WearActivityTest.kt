@@ -29,6 +29,21 @@ import app.sugarlicious.complications.R as ComplicationR
 
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
+    private val activeControllers = mutableListOf<org.robolectric.android.controller.ActivityController<out androidx.activity.ComponentActivity>>()
+
+    @org.junit.After
+    fun disposeAllTestWindows() {
+        for (controller in activeControllers.asReversed()) {
+            val activity = controller.get()
+            if (activity.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) controller.pause()
+            if (activity.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.STARTED) controller.stop()
+            if (activity.lifecycle.currentState != androidx.lifecycle.Lifecycle.State.DESTROYED) controller.destroy()
+        }
+        org.robolectric.Shadows
+            .shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(64))
+    }
+
     @Test
     @org.robolectric.annotation.Config(qualifiers = "w192dp-h192dp")
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
@@ -40,7 +55,7 @@ class WearActivityTest {
                 .apply { fontScale = 1.3f }
         @Suppress("DEPRECATION")
         context.resources.updateConfiguration(configuration, context.resources.displayMetrics)
-        val controller = Robolectric.buildActivity(WearActivity::class.java).setup()
+        val controller = Robolectric.buildActivity(WearActivity::class.java).also { activeControllers += it }.setup()
         controller.pause().stop()
         try {
             val activity = controller.get()
@@ -88,7 +103,12 @@ class WearActivityTest {
 
     @Test
     fun `therapy overview keeps separate cards with IOB and COB side by side`() {
-        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val activity =
+            Robolectric
+                .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
+                .setup()
+                .get()
         listOf(
             R.id.wear_iob_progress to R.id.wear_iob_card,
             R.id.wear_cob_progress to R.id.wear_cob_card,
@@ -103,7 +123,12 @@ class WearActivityTest {
 
     @Test
     fun `overview glucose uses value then shared progress bar then stacked age and delta pill`() {
-        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val activity =
+            Robolectric
+                .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
+                .setup()
+                .get()
         val info = activity.findViewById<LinearLayout>(R.id.wear_glucose_info_block)
         val pill = activity.findViewById<LinearLayout>(R.id.wear_glucose_meta_row)
 
@@ -121,7 +146,12 @@ class WearActivityTest {
 
     @Test
     fun `overview ends with native settings action and contains no app branding`() {
-        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val activity =
+            Robolectric
+                .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
+                .setup()
+                .get()
         val settings = activity.findViewById<android.widget.Button>(R.id.wear_settings_action)
         val menu = settings.parent as ViewGroup
         val views = mutableListOf<View>()
@@ -149,7 +179,12 @@ class WearActivityTest {
 
     @Test
     fun `first card starts inside the round display safe area`() {
-        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val activity =
+            Robolectric
+                .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
+                .setup()
+                .get()
         val menu = activity.findViewById<View>(R.id.wear_glucose_card).parent as ViewGroup
 
         assertEquals((30 * activity.resources.displayMetrics.density).toInt(), menu.paddingTop)
@@ -224,7 +259,7 @@ class WearActivityTest {
 
     @Test
     fun `settings are round safe and grouped into independent sections`() {
-        val controller = Robolectric.buildActivity(WearSettingsActivity::class.java).setup()
+        val controller = Robolectric.buildActivity(WearSettingsActivity::class.java).also { activeControllers += it }.setup()
         val activity = controller.get()
         try {
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
@@ -301,6 +336,7 @@ class WearActivityTest {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
                 .create()
                 .start()
                 .resume()
@@ -365,6 +401,7 @@ class WearActivityTest {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
                 .create()
                 .start()
                 .resume()
@@ -432,6 +469,7 @@ class WearActivityTest {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
                 .create()
                 .start()
                 .resume()
@@ -471,6 +509,7 @@ class WearActivityTest {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
+                .also { activeControllers += it }
                 .create()
                 .start()
                 .resume()

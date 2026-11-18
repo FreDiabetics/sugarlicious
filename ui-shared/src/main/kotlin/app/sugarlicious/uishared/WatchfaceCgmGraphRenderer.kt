@@ -14,6 +14,20 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+enum class WatchfaceGraphLayer {
+    ALL,
+    OUTSIDE_RANGE,
+    IN_RANGE,
+    ;
+
+    internal fun accepts(value: Double, thresholds: CgmThresholds): Boolean =
+        when (this) {
+            ALL -> true
+            OUTSIDE_RANGE -> value < thresholds.lowMgDl || value > thresholds.highMgDl
+            IN_RANGE -> value >= thresholds.lowMgDl && value <= thresholds.highMgDl
+        }
+}
+
 /** Transparent, monochrome complication artwork. The receiving watchface owns color and framing. */
 object WatchfaceCgmGraphRenderer {
     fun render(
@@ -30,6 +44,8 @@ object WatchfaceCgmGraphRenderer {
         activeIdentity: app.sugarlicious.model.CgmGraphSensorIdentity? =
             app.sugarlicious.model.CgmGraphHistoryPresentation
                 .latestIdentity(history),
+        inRangeColor: Int? = null,
+        layer: WatchfaceGraphLayer = WatchfaceGraphLayer.ALL,
     ) {
         if (width <= 0 || height <= 0 || !thresholds.isValid) return
         val displayWindow = GraphTimeWindow.live(window.endEpochMs, 5_400_000L)
@@ -76,7 +92,7 @@ object WatchfaceCgmGraphRenderer {
             val tone = level / 255f
             return Color.argb(Color.alpha(color), (Color.red(color) * tone).roundToInt(), (Color.green(color) * tone).roundToInt(), (Color.blue(color) * tone).roundToInt())
         }
-        if (targetLines) {
+        if (targetLines && layer != WatchfaceGraphLayer.IN_RANGE) {
             val guide =
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     strokeWidth = 1.4f * unit
@@ -115,6 +131,7 @@ object WatchfaceCgmGraphRenderer {
         val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
 
         fun pointColor(value: Double): Int {
+            if (inRangeColor != null) return if (WatchfaceGraphLayer.IN_RANGE.accepts(value, thresholds)) inRangeColor else color
             val tone =
                 when {
                     value < thresholds.lowMgDl -> 120
@@ -131,7 +148,7 @@ object WatchfaceCgmGraphRenderer {
         canvas.withSave {
             if (current != null) canvas.clipOutPath(Path().apply { addCircle(x(current), y(current.valueMgDl), 4.4f * unit, Path.Direction.CW) })
             samples.forEach { sample ->
-                if (sample != current) {
+                if (sample != current && layer.accepts(sample.valueMgDl, thresholds)) {
                     dot.color = pointColor(sample.valueMgDl)
                     val retired =
                         app.sugarlicious.model.CgmGraphHistoryPresentation
@@ -148,7 +165,7 @@ object WatchfaceCgmGraphRenderer {
             }
         }
         dot.style = Paint.Style.FILL
-        if (current == null) return
+        if (current == null || !layer.accepts(current.valueMgDl, thresholds)) return
         // Orbit's opaque center hides guide labels beneath the newest sample; preserve its ring.
         if (semicircle) {
             dot.color = Color.BLACK

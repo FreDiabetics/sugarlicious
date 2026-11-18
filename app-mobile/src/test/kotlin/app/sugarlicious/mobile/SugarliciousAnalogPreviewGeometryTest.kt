@@ -18,8 +18,13 @@ class SugarliciousAnalogPreviewGeometryTest {
             (0 until graph.getElementsByTagName("Complication").length)
                 .map { graph.getElementsByTagName("Complication").item(it) as Element }
                 .single { it.getAttribute("type") == "LONG_TEXT" }
-        val policies = small.getElementsByTagName("Variant")
-        assertTrue((0 until policies.length).all { (policies.item(it) as Element).getAttribute("value").toInt() > 0 })
+        val graphArtwork = small.nodes("Group").filter { it.getAttribute("name") in setOf("graph-cap-ink", "graph-range-ink") }
+        assertEquals(2, graphArtwork.size)
+        assertTrue(graphArtwork.flatMap { it.nodes("Variant") }.all { it.getAttribute("value").toInt() > 0 })
+        val tap = small.nodes("Group").single { it.getAttribute("name") == "native-graph-popup-tap" }
+        val tapAmbient = tap.nodes("Variant").single()
+        assertEquals("AMBIENT", tapAmbient.getAttribute("mode"))
+        assertEquals("0", tapAmbient.getAttribute("value"))
     }
 
     @Test fun `default configuration matches the captured Apex template`() {
@@ -127,7 +132,8 @@ class SugarliciousAnalogPreviewGeometryTest {
     fun `only image graph receives a pattern knockout behind its transparent artwork`() {
         val content = slot("7").nodes("Complication").single { it.getAttribute("type") == "LONG_TEXT" }
         val group = content.nodes("Group").single { it.getAttribute("name") == "graph-clipped-content" }
-        val backing = group.nodes("Rectangle").single()
+        val capInk = group.nodes("Group").single { it.getAttribute("name") == "graph-cap-ink" }
+        val backing = capInk.nodes("Rectangle").single()
         val draw = backing.parentNode as Element
         assertEquals("97", draw.getAttribute("height"))
         assertEquals("91", draw.getAttribute("y"))
@@ -138,8 +144,11 @@ class SugarliciousAnalogPreviewGeometryTest {
         near(256.0, arc, "centerY")
         near(165.0, arc, "width")
         near(165.0, arc.nodes("Stroke").single(), "thickness")
-        assertEquals("[CONFIGURATION.materialAccent.0]", group.getAttribute("tintColor"))
-        assertEquals("[COMPLICATION.MONOCHROMATIC_IMAGE]", group.nodes("Image").single().getAttribute("resource"))
+        val rangeInk = group.nodes("Group").single { it.getAttribute("name") == "graph-range-ink" }
+        assertEquals("[CONFIGURATION.materialAccent.0]", capInk.getAttribute("tintColor"))
+        assertEquals("[COMPLICATION.MONOCHROMATIC_IMAGE]", capInk.nodes("Image").single().getAttribute("resource"))
+        assertEquals("[CONFIGURATION.materialSubTheme.0]", rangeInk.getAttribute("tintColor"))
+        assertEquals("[COMPLICATION.SMALL_IMAGE]", rangeInk.nodes("Image").single().getAttribute("resource"))
         (0..6).forEach { id -> assertTrue(slot(id.toString()).nodes("Rectangle").isEmpty()) }
     }
 

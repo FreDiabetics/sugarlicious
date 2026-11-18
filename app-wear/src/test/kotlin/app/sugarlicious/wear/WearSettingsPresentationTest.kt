@@ -91,7 +91,7 @@ class WearSettingsPresentationTest {
         assertEquals(11, keys.size)
         keys.forEach { key ->
             descendants(content).single { it.tag == key }.performClick()
-            awaitView(content) { it.contentDescription == "Zur\u00fcck" && descendants(content).none { view -> view.tag == key } }
+            awaitView(content) { it is ScrollView && descendants(content).none { view -> view.tag == key } }
             if (key == "settings-category-graph") {
                 val buttons = descendants(content).filterIsInstance<TextView>().toList()
                 WearDisplayPreferences.allowedGraphHours.forEach { hours ->
@@ -107,7 +107,11 @@ class WearSettingsPresentationTest {
                 assertTrue(descendants(page).any { it is ScrollSafeSwitch })
             }
             assertEquals(before, WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)))
-            descendants(content).single { it.contentDescription == "Zurück" }.performClick()
+            // The shared header intentionally has no button; system Back invokes this handler.
+            WearSettingsActivity::class.java
+                .getDeclaredMethod("navigateBack")
+                .apply { isAccessible = true }
+                .invoke(activity)
             awaitView(content) { it.tag == key }
         }
     }

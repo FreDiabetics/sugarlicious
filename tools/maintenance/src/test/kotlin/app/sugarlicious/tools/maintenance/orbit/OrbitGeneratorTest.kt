@@ -468,7 +468,7 @@ class OrbitGeneratorTest {
         val content = s.need("Complication[@type='LONG_TEXT']")
         assertTrue(content.all(".//Stroke[@thickness='2']").isEmpty())
         val clip = content.need(".//Group[@name='graph-clipped']")
-        assertEquals("[CONFIGURATION.primary.0]", clip.attr("tintColor"))
+        assertEquals("[CONFIGURATION.primary.0]", clip.need("Group[@name='graph-cap-ink']").attr("tintColor"))
         val mask = clip.need("PartDraw[@renderMode='MASK']//Arc")
         near(270.0, mask.number("startAngle"))
         near(450.0, mask.number("endAngle"))

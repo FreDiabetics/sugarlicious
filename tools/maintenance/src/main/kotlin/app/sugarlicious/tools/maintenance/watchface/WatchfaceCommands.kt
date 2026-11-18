@@ -44,13 +44,20 @@ fun runWatchfaceTool(command: String, args: List<String>): Int? {
                 if (root.one("Scene/ComplicationSlot[@slotId='7']/Complication[@type='LONG_TEXT']") == null) simplifyApexEditor(root, strings)
                 fitOuterValueText(root)
                 restoreNativeHands(root, "apex")
+                configureWatchfaceGraphPopup(root, "apex")
             }
-            "curated-palettes" -> applyApexPalettes(root, strings!!)
+            "curated-palettes" -> {
+                applyApexPalettes(root, strings!!)
+                configureWatchfaceGraphPopup(root, "apex")
+            }
             "unify-apex-progress-settings" -> unifyApexProgressSettings(root, strings!!)
             "user-flavors" -> replaceUserFlavors(root, strings!!, selectedFamily!!)
             "configure-indicator-gradient" -> configureIndicatorGradient(root, selectedFamily!!)
             "segmented-progress" -> configureSegmentedProgress(root, selectedFamily!!)
-            "restore-native-hands" -> restoreNativeHands(root, selectedFamily!!)
+            "restore-native-hands" -> {
+                restoreNativeHands(root, selectedFamily!!)
+                configureWatchfaceGraphPopup(root, selectedFamily)
+            }
         }
         writeXml(root, path)
         if (strings != null) writeXml(strings, stringsPath)

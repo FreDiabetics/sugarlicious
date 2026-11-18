@@ -36,6 +36,7 @@ import app.sugarlicious.model.WearGlucoseCardStyle
 import app.sugarlicious.model.wearGlucoseCardPresentation
 import app.sugarlicious.protocol.WatchGlucoseUnit
 import app.sugarlicious.uishared.TrendDrawableResources
+import app.sugarlicious.uishared.centerOnGlucoseMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -205,9 +206,7 @@ class WearActivity : ComponentActivity() {
                 addView(
                     ImageView(this@WearActivity).apply {
                         setImageResource(icon)
-                        imageTintList =
-                            android.content.res.ColorStateList
-                                .valueOf(0xFFB5B5B5.toInt())
+                        centerOnGlucoseMetadata(text)
                         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                     },
                     LinearLayout.LayoutParams(pixels(20f * resources.configuration.fontScale), pixels(20f * resources.configuration.fontScale)).apply { marginEnd = pixels(5f) },

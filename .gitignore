@@ -6,6 +6,7 @@ local.properties
 *.iml
 captures/
 dist/
+/app-mobile/release/
 .worktrees/
 __pycache__/
 *.py[cod]

@@ -108,7 +108,7 @@
   <string name="glucose_color">Glukosefarbe</string>
   <string name="progress_marker">Anzeiger</string>
   <string name="upper_right_markers">Teilstriche</string>
-  <string name="material_color_label">Farben</string>
+  <string name="material_color_label">Zifferblatt</string>
   <string name="material_subtheme_label">Akzente</string>
   <string name="material_lime">Material Limette</string>
   <string name="material_mint">Material Mint</string>

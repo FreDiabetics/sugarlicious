@@ -22,6 +22,26 @@ class WatchfaceCgmGraphRendererTest {
     private val minute = 60_000L
 
     @Test
+    fun `range and outside dots use independent full brightness editor colors`() {
+        val bitmap = Bitmap.createBitmap(660, 330, Bitmap.Config.ARGB_8888)
+        val outside = 0xFFFFCCB1.toInt()
+        val inside = 0xFFD4DAB6.toInt()
+        val history = listOf(GlucoseSample(55.0, now - 15 * minute), GlucoseSample(120.0, now - 10 * minute), GlucoseSample(230.0, now - 5 * minute))
+        WatchfaceCgmGraphRenderer.render(Canvas(bitmap), 660, 330, history, GraphTimeWindow.live(now, 90 * minute), CgmThresholds.DEFAULT, color = outside, inRangeColor = inside)
+        var outsidePixels = 0
+        var insidePixels = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                if (bitmap.getPixel(x, y) == outside) outsidePixels++
+                if (bitmap.getPixel(x, y) == inside) insidePixels++
+            }
+        }
+        assertTrue(outsidePixels > 30)
+        assertTrue(insidePixels > 30)
+        bitmap.recycle()
+    }
+
+    @Test
     fun `Orbit current marker has opaque black interior and retains its light outline`() {
         val bitmap = Bitmap.createBitmap(660, 330, Bitmap.Config.ARGB_8888)
         WatchfaceCgmGraphRenderer.render(Canvas(bitmap), 660, 330, listOf(GlucoseSample(120.0, now)), GraphTimeWindow.live(now, 90 * minute), CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0), targetLines = false, semicircle = true)
