@@ -8,5 +8,5 @@ android {
 dependencies {
     api(project(":data-source-api"))
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("org.robolectric:robolectric:4.18.1")
 }
