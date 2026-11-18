@@ -23,10 +23,10 @@ object WearSettingsUi {
     const val MENU_TEXT: Int = 0xFFFFFFFF.toInt()
     const val MENU_SECONDARY: Int = 0xFFB6B6BB.toInt()
 
-    fun pageHeader(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
+    fun pageHeader(context: Context, title: String, textColor: Int, back: () -> Unit = {}): LinearLayout =
         header(context, title, textColor, back).apply {
             val inset = dp(context, 11)
-            setPadding(inset, 0, inset, 0)
+            setPadding(inset, dp(context, 4), inset, dp(context, 8))
         }
 
     /** Flat One UI Watch action surface, with no platform button inset or elevation shadow. */
@@ -289,76 +289,26 @@ object WearSettingsUi {
             )
         }
 
-    fun header(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
+    fun header(context: Context, title: String, textColor: Int, back: () -> Unit = {}): LinearLayout =
         LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, 56)
-            addView(
-                android.widget.ImageButton(context).apply {
-                    setImageDrawable(WearBackIcon(context, textColor))
-                    scaleType = android.widget.ImageView.ScaleType.CENTER
-                    contentDescription = "Zurück"
-                    tooltipText = "Zurück"
-                    background = android.graphics.drawable.InsetDrawable(background(context, Color.rgb(42, 42, 45), 24f), dp(context, 2))
-                    setOnClickListener { back() }
-                },
-                LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)),
-            )
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            minimumHeight = dp(context, 48)
+            setPadding(0, dp(context, 6), 0, dp(context, 6))
             addView(
                 TextView(context).apply {
                     text = title
-                    textSize = 18f
+                    textSize = 21f
                     includeFontPadding = false
                     setTextColor(textColor)
+                    gravity = Gravity.CENTER
+                    textAlignment = View.TEXT_ALIGNMENT_CENTER
                     SystemTypography.apply(this, true)
                     if (android.os.Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
-                    setPadding(dp(context, 10), 0, 0, 0)
                 },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
             )
         }
 }
 
 /** Navigation is an icon, so increasing the system font never clips a text glyph. */
-private class WearBackIcon(
-    context: Context,
-    color: Int,
-) : android.graphics.drawable.Drawable() {
-    private val size = WearSettingsUi.dp(context, 20)
-    private val paint =
-        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = android.graphics.Paint.Style.STROKE
-            strokeWidth = WearSettingsUi.dp(context, 2).toFloat()
-            strokeCap = android.graphics.Paint.Cap.ROUND
-            strokeJoin = android.graphics.Paint.Join.ROUND
-        }
-
-    override fun draw(canvas: android.graphics.Canvas) {
-        val path =
-            android.graphics.Path().apply {
-                moveTo(bounds.left + bounds.width() * .65f, bounds.top + bounds.height() * .18f)
-                lineTo(bounds.left + bounds.width() * .32f, bounds.top + bounds.height() * .5f)
-                lineTo(bounds.left + bounds.width() * .65f, bounds.top + bounds.height() * .82f)
-            }
-        canvas.drawPath(path, paint)
-    }
-
-    override fun getIntrinsicWidth(): Int = size
-
-    override fun getIntrinsicHeight(): Int = size
-
-    override fun setAlpha(alpha: Int) {
-        paint.alpha = alpha
-        invalidateSelf()
-    }
-
-    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
-        paint.colorFilter = colorFilter
-        invalidateSelf()
-    }
-
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
-}

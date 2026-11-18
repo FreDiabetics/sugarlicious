@@ -40,6 +40,11 @@ class DebugStateReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
+                if (intent.getStringExtra("mode") == "refresh-watchface") {
+                    val status = SugarliciousWatchFacePush.apply(context.applicationContext, intent.getIntExtra("index", 0))
+                    android.util.Log.i("WatchFacePush", "Debug refresh: $status")
+                    return@launch
+                }
                 val store = TherapyStateStore(context)
                 val previous = store.state.first()
                 val incoming = syntheticState(intent.getStringExtra("mode") ?: "current")

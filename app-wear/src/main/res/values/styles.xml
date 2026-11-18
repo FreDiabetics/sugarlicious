@@ -6,4 +6,10 @@
         <item name="android:navigationBarColor">@color/wear_background</item>
         <item name="android:statusBarColor">@color/wear_background</item>
     </style>
+    <style name="WatchfaceGraphOverlayTheme" parent="WearTheme">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
 </resources>

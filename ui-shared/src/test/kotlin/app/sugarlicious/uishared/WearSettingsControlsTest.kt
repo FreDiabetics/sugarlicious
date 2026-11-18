@@ -152,7 +152,7 @@ class WearSettingsControlsTest {
         assertFalse(slider.isFocusableInTouchMode)
     }
 
-    @Test fun `header keeps readable wrapping and a named back button at double font size`() {
+    @Test fun `header keeps centered title at double font size`() {
         val scaled =
             context.createConfigurationContext(
                 android.content.res
@@ -167,12 +167,8 @@ class WearSettingsControlsTest {
                 .makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
         )
         header.layout(0, 0, header.measuredWidth, header.measuredHeight)
-        val back = header.getChildAt(0)
-        assertTrue(back is android.widget.ImageButton)
-        assertEquals("Zurück", back.contentDescription)
-        assertEquals(WearSettingsUi.dp(scaled, 48), back.measuredWidth)
-        val title = header.getChildAt(1) as android.widget.TextView
-        assertTrue(title.lineCount > 1)
+        val title = header.getChildAt(0) as android.widget.TextView
+        assertEquals("Farben und Darstellung", title.text.toString())
         assertTrue(title.isAccessibilityHeading)
     }
 

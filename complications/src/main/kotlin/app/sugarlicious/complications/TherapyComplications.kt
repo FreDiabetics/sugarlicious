@@ -370,25 +370,23 @@ abstract class TherapyComplicationService(
             kind == ProviderKind.GRAPH ||
             kind == ProviderKind.GRAPH_LARGE
         ) {
+            // Keep all dots in the primary image. Some WFF transitions restore this image
+            // without the small-image layer that provides the in-range tint.
             val bitmap = renderImage(state = therapyState, kind = kind, now = now)
-            val icon =
-                if (kind == ProviderKind.GRAPH && type == ComplicationType.LONG_TEXT) {
-                    // Keep normal and ambient graph payloads lossless and compact.
-                    val encoded =
-                        java.io.ByteArrayOutputStream().use { output ->
-                            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
-                            output.toByteArray()
-                        }
-                    Icon.createWithData(encoded, 0, encoded.size)
-                } else {
-                    Icon.createWithBitmap(bitmap)
-                }
+            // The WFF runtime persists bitmap icons across visibility changes; TYPE_DATA icons
+            // render initially but cannot be serialized by the watchface image cache.
+            val icon = Icon.createWithBitmap(bitmap)
             return when {
                 kind == ProviderKind.GRAPH && type == ComplicationType.LONG_TEXT ->
                     LongTextComplicationData
                         .Builder(PlainComplicationText.Builder(if (previewMode) "full" else WatchfaceHandsOpacity.text(this, graphProfile)).build(), description)
                         .setMonochromaticImage(MonochromaticImage.Builder(icon).setAmbientImage(icon).build())
-                        .build()
+                        .setSmallImage(
+                            renderImage(state = therapyState, kind = kind, now = now, layer = app.sugarlicious.uishared.WatchfaceGraphLayer.IN_RANGE).let { range ->
+                                val rangeIcon = Icon.createWithBitmap(range)
+                                SmallImage.Builder(rangeIcon, SmallImageType.PHOTO).setAmbientImage(rangeIcon).build()
+                            },
+                        ).build()
                 type == ComplicationType.PHOTO_IMAGE ->
                     PhotoImageComplicationData
                         .Builder(icon, description)
@@ -636,6 +634,7 @@ abstract class TherapyComplicationService(
         state: TherapyDisplayState?,
         kind: ProviderKind,
         now: Long,
+        layer: app.sugarlicious.uishared.WatchfaceGraphLayer = app.sugarlicious.uishared.WatchfaceGraphLayer.ALL,
     ): Bitmap {
         val valueOnly = kind == ProviderKind.GLUCOSE_IMAGE
         val (width, height) = complicationImageSize(kind, graphProfile)
@@ -663,6 +662,7 @@ abstract class TherapyComplicationService(
             now = now,
             windowMs = windowMs,
             watchface = kind == ProviderKind.GRAPH,
+            layer = layer,
         )
         return bitmap
     }
@@ -711,6 +711,7 @@ abstract class TherapyComplicationService(
         now: Long,
         windowMs: Long,
         watchface: Boolean,
+        layer: app.sugarlicious.uishared.WatchfaceGraphLayer,
     ) {
         val width = canvas.width
         val colors = readGraphColors()
@@ -748,6 +749,8 @@ abstract class TherapyComplicationService(
                 thresholds,
                 semicircle = true,
                 showThresholdLabels = graphProfile == WatchfaceGraphProfile.ORBIT,
+                inRangeColor = if (layer == app.sugarlicious.uishared.WatchfaceGraphLayer.ALL) null else Color.WHITE,
+                layer = layer,
                 activeIdentity =
                     app.sugarlicious.model.CgmGraphHistoryPresentation
                         .identity(state?.glucose) ?: app.sugarlicious.model.CgmGraphHistoryPresentation

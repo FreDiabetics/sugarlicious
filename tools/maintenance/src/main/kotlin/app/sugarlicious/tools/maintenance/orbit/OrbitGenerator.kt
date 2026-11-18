@@ -45,7 +45,7 @@ private fun model(name: String): Element =
 
 private object OrbitGeneratorResource
 
-fun generateOrbit(output: Path, repositoryRoot: Path = watchfaceRepositoryRoot()) {
+fun generateOrbit(output: Path, repositoryRoot: Path = watchfaceRepositoryRoot(), includeGraphPopup: Boolean = true) {
     val root = model("geometry.xml")
     val strings = model("labels.xml")
     val palettes = loadPalettes(repositoryRoot)
@@ -65,6 +65,7 @@ fun generateOrbit(output: Path, repositoryRoot: Path = watchfaceRepositoryRoot()
     configureIndicatorGradient(root, "orbit")
     configureSegmentedProgress(root, "orbit")
     restoreNativeHands(root, "orbit")
+    if (includeGraphPopup) configureWatchfaceGraphPopup(root, "orbit")
     writeXml(root, output.resolve("raw/watchface.xml"))
     writeXml(strings, output.resolve("values/strings.xml"))
     configureTrendIconGeometry(output.resolve("raw/watchface.xml"))

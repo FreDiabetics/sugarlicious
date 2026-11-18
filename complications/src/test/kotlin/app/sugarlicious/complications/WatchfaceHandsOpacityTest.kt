@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
@@ -41,14 +42,41 @@ class WatchfaceHandsOpacityTest {
     }
 
     @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `both native graph primary images retain target dots without the tint overlay`() {
+        val services = listOf(NativeApexGraphComplication::class.java, NativeOrbitGraphComplication::class.java)
+        services.forEach { provider ->
+            val service = Robolectric.buildService(provider).create().get()
+            val data = service.getPreviewData(ComplicationType.LONG_TEXT) as LongTextComplicationData
+            val base = (data.monochromaticImage!!.image.loadDrawable(service) as android.graphics.drawable.BitmapDrawable).bitmap
+            val overlay = (data.smallImage!!.image.loadDrawable(service) as android.graphics.drawable.BitmapDrawable).bitmap
+            assertEquals(base.width, overlay.width)
+            assertEquals(base.height, overlay.height)
+            var dotPixels = 0
+            for (y in 0 until overlay.height) {
+                for (x in 0 until overlay.width) {
+                    // Skip antialiasing and the opaque black center of the newest dot.
+                    if (overlay.getPixel(x, y) == android.graphics.Color.WHITE) {
+                        dotPixels++
+                        assertEquals("${provider.simpleName} lost a dot pixel", android.graphics.Color.WHITE, base.getPixel(x, y))
+                    }
+                }
+            }
+            org.junit.Assert.assertTrue("Preview has no in-range dots", dotPixels > 0)
+        }
+    }
+
+    @Test
     fun `graph carries reference state without making the full graph tappable`() {
         val service = Robolectric.buildService(NativeApexGraphComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.LONG_TEXT) as LongTextComplicationData
         assertEquals("full", data.text.getTextAt(service.resources, Instant.now()).toString())
-        assertNull(data.smallImage)
+        assertNotNull(data.smallImage)
+        assertNotNull(data.smallImage?.ambientImage)
+        assertEquals(android.graphics.drawable.Icon.TYPE_BITMAP, data.smallImage!!.image.type)
         assertNotNull(data.monochromaticImage)
         assertNotNull(data.monochromaticImage?.ambientImage)
-        assertEquals(android.graphics.drawable.Icon.TYPE_DATA, data.monochromaticImage!!.image.type)
+        assertEquals(android.graphics.drawable.Icon.TYPE_BITMAP, data.monochromaticImage!!.image.type)
         assertNull(data.tapAction)
         WatchfaceHandsOpacity.toggle(service, WatchfaceGraphProfile.APEX)
         val dim =
