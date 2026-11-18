@@ -132,7 +132,8 @@ class SugarliciousAnalogPreviewGeometryTest {
     fun `only image graph receives a pattern knockout behind its transparent artwork`() {
         val content = slot("7").nodes("Complication").single { it.getAttribute("type") == "LONG_TEXT" }
         val group = content.nodes("Group").single { it.getAttribute("name") == "graph-clipped-content" }
-        val backing = group.nodes("Rectangle").single { it.parentNode.parentNode == group }
+        val capInk = group.nodes("Group").single { it.getAttribute("name") == "graph-cap-ink" }
+        val backing = capInk.nodes("Rectangle").single()
         val draw = backing.parentNode as Element
         assertEquals("97", draw.getAttribute("height"))
         assertEquals("91", draw.getAttribute("y"))
@@ -143,7 +144,6 @@ class SugarliciousAnalogPreviewGeometryTest {
         near(256.0, arc, "centerY")
         near(165.0, arc, "width")
         near(165.0, arc.nodes("Stroke").single(), "thickness")
-        val capInk = group.nodes("Group").single { it.getAttribute("name") == "graph-cap-ink" }
         val rangeInk = group.nodes("Group").single { it.getAttribute("name") == "graph-range-ink" }
         assertEquals("[CONFIGURATION.materialAccent.0]", capInk.getAttribute("tintColor"))
         assertEquals("[COMPLICATION.MONOCHROMATIC_IMAGE]", capInk.nodes("Image").single().getAttribute("resource"))
